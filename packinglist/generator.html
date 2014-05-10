@@ -1,0 +1,77 @@
+<!--Packing List App Generator Survey -->
+<form method = "post">
+	<head>
+		<style type="text/css">
+		.error{color:red;}
+		</style>
+		<title>
+			Packing list generator
+		</title>
+	</head>
+	<body>
+	<label>
+		<b>MY PACKING LIST </b> <br>
+		Packing list generator <br>
+		<a href="/packinglist/signup">If you're new, create an account here </a><br>
+		<a href="/packinglist/login">If you already have an account, sign in here</a><br>
+		<a href="/packinglist/generator">If you are just playing around with the app, click here</a>
+	<br>
+	<br>
+	<label>
+		Name your trip* <br>
+		<input name="name" value={{name}}> <br>
+		<div class="error">{{error_name}}</div>
+		</label>
+	<br><br>
+	<label>
+		How long is your trip?*<br>
+		<input name="days" value={{days}}>days
+		<div class="error">{{error_days}}</div>
+		<br>
+		</label>
+	<br>
+	<label>
+		What is your gender?*<br>
+		<input name="gender" type="radio" value="male">
+		Male
+		<input name="gender" type="radio" value="female">
+		Female
+		<div class="error">{{error_gender}}</div>
+		</label>
+	<br><br>
+	<label>
+		What is the temperature at your destination? Check all that apply.* <br>
+		<input name="warm" type="checkbox">
+		Warm
+		<input name="cold" type="checkbox">
+		Cold
+		<input name="rainy" type="checkbox">
+		Rainy or Snowy <br>
+		<div class="error">{{error_temp}}</div>
+		</label>
+	<br><br>
+	<label>
+		What kind of trip is it? Check all that apply. <br>
+		<input name="beach" type="checkbox">
+		Beach
+		<input name="work" type="checkbox">
+		Work
+		<input name="hiking" type="checkbox">
+		Hiking
+		<input name="festival" type="checkbox">
+		Music Festival
+		</label>
+	<br><br>
+	<label>
+		What is your packing style? <br>
+		<input name="style" type="radio" value="light">
+		Light
+		<input name="style" type="radio" value="normal">
+		Normal
+		<input name="style" type="radio" value="heavy">
+		Heavy
+		</label>
+	<br><br>
+	<input type = "submit">
+	</body>
+</form>

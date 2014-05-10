@@ -1,0 +1,53 @@
+<form method="post">
+	<head>
+		<title> My packing checklist </title>
+	</head>
+	<body>
+		<h1> My Packing Checklist </h1>
+		<h2> Trip Name: {{name}}, {{days}} days</h2>
+		<!--<a href="{{update}}"> Update list </a> which should entail marking things as "packed" on the dB-->
+		<table style="width:500px">
+			<tr>
+				<td> <b> To Pack </b></td>
+				<td> <b> Packed </b></td>
+			</tr>
+			<tr>
+				<td> Clothing <br>
+					<!--current_category = "Clothing"-->
+				{% for item in items: %}
+					<% =det(item.item, item.category, item.gender, item.freq, item.type, item.packed, packed_side, gen_user, days, beach, hiking, festival, work, cold, rainy, type_packer, current_category)%>
+				{% endfor %}
+				 </td>
+				<td> Clothing </td>
+			</tr>
+			<tr>
+				<td> Toiletry </td>
+				<td> Toiletry </td>
+			</tr>
+			<tr>
+				<td> Other </td>
+				<td> Other </td>
+			</tr>
+			<tr> <td><br></td></tr>
+			<tr>
+				<td>
+				<em>Other suggested items</em></td>
+			</tr>
+				<td>Clothing </td>
+				<td>Clothing </td>
+			</tr>
+			<tr>
+				<td> Toiletry </td>
+				<td> Toiletry </td>
+			</tr>
+			<tr>
+				<td> Other </td>
+				<td> Other </td>
+
+		</table>
+
+
+
+
+	</body>
+</form>

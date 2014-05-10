@@ -1,0 +1,28 @@
+<!-- Registration form -->
+<form method = "post">
+	<label>
+		Registration
+	</label>
+	<br>
+	<label>
+		Username
+	<input name="username" value={{username}}> {{error_user}}
+	</label>
+	<br>
+	<label>
+		Password
+	<input name="password" type="password"> {{error_password}}
+	</label>
+	<br>
+	<label>
+		Re-type password
+	<input name="verify" type="password"> {{error_verify}}
+	</label>
+	<br>
+	<label>
+		Email (optional)
+	<input name="email" value={{email}}> {{error_email}}
+	</label>
+	<br>
+	<input type = "submit">
+</form>
