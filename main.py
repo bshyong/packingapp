@@ -26,6 +26,7 @@ import listdetermination
 from collections import namedtuple
 
 from google.appengine.ext import db
+from google.appengine.api import memcache
 
 template_dir = os.path.join(os.path.dirname(__file__), 'packinglist') 
 jinja_env = jinja2.Environment(loader = jinja2.FileSystemLoader(template_dir),autoescape=True)
@@ -38,6 +39,7 @@ class Handler(webapp2.RequestHandler):
         return t.render(params)
     def render(self, template, **kw):
         self.write(self.render_str(template, **kw))
+
 class MainHandler(Handler):
     #write the form
     def write_form(self, username="", error_user="", error_password="", error_verify="", 
@@ -137,8 +139,8 @@ class Generator(Handler):
         if name=="":
             error_name="Name is required"
             error=1
-        if days=="":
-            error_days="Duration of trip is required"
+        if days=="" and not isinstance(days,int):
+            error_days="Duration of trip is required, in whole numbers"
             error=1
         if gender=="":
             error_gender="Gender is required"
@@ -153,13 +155,32 @@ class Generator(Handler):
             a = Preferences(name=name, days=int(days), gender=gender, cold=cold, warm=warm, rainy=rainy, beach=beach, 
                 work=work, hiking=hiking, festival=festival, style=style)
             a.put()
-            selection = db.GqlQuery("Select * from Packing")
-            for e in selection:
-                e.name=False
-                db.put(e)
-            self.response.headers.add_header("set-cookie", "name=%s" %str(name))
-            self.response.write("Success")        
+            p = db.GqlQuery("Select * from Packing")
+            new=[]
+            for e in p:
+                status=listdetermination.status(gender=e.gender, type=e.type, 
+                        gen_user=gender, beach=beach, hiking=hiking, festival=festival, 
+                        work=work, cold=cold, rainy=rainy, weather=e.weather)
+                quantity=listdetermination.quant(item=e.item, days=days, cold=cold, 
+                        warm=warm, rainy=rainy, type_packer=style, freq=e.freq)
+                b = ListDatabase(item=e.item, gender=e.gender, freq=e.freq, weather=e.weather,
+                    type=e.type, category=e.category, trip_name=name, user_id="", 
+                    status = status, quantity=quantity)
+                new.append(b)
+            db.put(new)
+            #Need to escape apostrophe don't know how!!
+            self.response.headers.add_header("set-cookie", "name=%s" %str(name.replace("'", "&apos;")))#HELP!
+            self.response.headers.add_header("set-cookie", "days=%s" %str(days))
+            self.redirect("/packinglist/checklist")
 
+
+class Packing(db.Model):
+    item = db.StringProperty(required=True)
+    gender = db.StringProperty(required=False)
+    freq = db.StringProperty(required=False)
+    type = db.StringProperty(required=False)
+    weather = db.StringProperty(required=False)
+    category = db.StringProperty(required=False)
 
 class Preferences(db.Model):
     name=db.StringProperty(required=True)
@@ -179,40 +200,70 @@ class Preferences(db.Model):
 class Checklist(Handler):
     def get(self):
         name=self.request.cookies.get("name")
-        b=db.GqlQuery("Select * from Preferences where name=:1", name)
-        preference = b.get()
-        days=preference.days
-        gen_user=preference.gender
-        beach=preference.beach
-        hiking=preference.hiking
-        festival=preference.festival
-        work=preference.work
-        cold=preference.cold
-        rainy=preference.rainy
-        type_packer=preference.style
-        packed_side = "No" #To make flexible
+        days=self.request.cookies.get("days")
+        cn = selector('Clothing', 'not packed', name)
+        tn = selector('Toiletry', 'not packed', name)
+        on = selector('Other', 'not packed', name)
+        cp = selector('Clothing', 'packed', name)
+        tp = selector('Toiletry', 'packed', name)
+        op = selector('Other', 'packed', name)
+        nplist=[cn, tn, on]
+        packed, notpacked = [],[]
+        for li in nplist:
+            for e in li:
+                notpacked.append(e.key().id())
+        plist=[cp, tp, op]
+        for li in plist:
+            for e in li:
+                packed.append(e.key().id())
+        memcache.set("notpacked", notpacked)
+        memcache.set("packed", packed)
+        self.render("checklist.html", cn_add="<button type='button'>add</button>", name=name, days=days, cn=cn, tn=tn, on=on, cp=cp, tp=tp, op=op)
+        #I should use memcache on this after the first pull
+    def post(self):
+        #move things from not packed to packed
+        notpacked=memcache.get("notpacked") #how to set class member variables?
+        packed=memcache.get("packed")
+        self.write(notpacked)
+        #I am unable to use Google's built-in ID when calling it from html..
+        name=self.request.cookies.get("name")
+        for e in notpacked:
+            if self.request.get(str(e))=="on":
+                p=db.GqlQuery("SELECT * "
+                    "FROM ListDatabase "
+                    "WHERE __key__=KEY('ListDatabase', :1) AND trip_name=:2", e, name).get()
+                p.status="packed"
+                p.put()
+        for e in packed:
+            if self.request.get(str(e))=="on":
+                p=db.GqlQuery("SELECT * "
+                    "FROM ListDatabase "
+                    "WHERE __key__=KEY('ListDatabase', :1) AND trip_name=:2", e, name).get()
+                p.status="not packed"
+                p.put()       
+        self.redirect('/packinglist/checklist')
+        
+        #display on checklist
+        
+def selector(category, status, name):
+    p = db.GqlQuery("SELECT * "
+            "FROM ListDatabase "
+            "WHERE category=:1 AND status=:2 AND trip_name=:3",
+            category, status, name)
+    return p
 
-        Unit = namedtuple("Unit", ["item", "category","gender", "freq","type","packed"])
-        items = [Unit("toothbrush", "Toiletry", "N", "Single", "All","No"),
-                Unit("toothpaste","Clothing", "N", "Single","Beach","No"),
-                Unit("Towel","Clothing", "N", "Multiple", "All","No")]
-        self.render("checklist.html", items=items)
-
-#class ListStorage(db.Model): #generates the list of items for the trip name, do i need to transpose it?
-#    b=db.GqlQuery("Select * from Packing")
-#    items=b.get()
-#    for item in items.item:
-#        item=db.StringProperty(required=True)
-class Packing(db.Model):
+class ListDatabase(db.Model):
     item=db.StringProperty(required=True)
     category=db.StringProperty(required=False)
     gender=db.StringProperty(required=False)
     freq = db.StringProperty(required=False)
     type = db.StringProperty(required = False)
-    names = db.GqlQuery("Select name from Preferences").fetch(5) #generate list of columns
-    for e in names:
-        e = db.BooleanProperty(indexed=True)
-    
+    weather = db.StringProperty(required=False)
+    status = db.StringProperty(required=False)
+    quantity = db.StringProperty(required=False)
+    trip_name = db.StringProperty(required=False)
+    user_id = db.StringProperty(required=False)
+
 """ How to change to status of a packed item
 packed_list = ["Toothbruth", "Toothpaste"]
 selection = db.GqlQuery("Select * from Packing where name is :1 and item in :1", name, 
@@ -222,6 +273,12 @@ for e in packed_list:
     db.put(e)
 """
 
+class Delete(Handler):
+    def get(self):
+        entries=db.GqlQuery("Select * from ListDatabase")
+        for e in entries:
+            e.delete()
+
 
 app = webapp2.WSGIApplication([
     ('/packinglist/signup', MainHandler),
@@ -229,5 +286,6 @@ app = webapp2.WSGIApplication([
     ('/packinglist/login', Login),
     ('/packinglist/logout', Logout),
     ('/packinglist/generator', Generator),
-    ('/packinglist/checklist', Checklist)
+    ('/packinglist/checklist', Checklist),
+    ('/packinglist/delete', Delete)
 ], debug=True)
