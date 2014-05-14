@@ -1,49 +1,71 @@
 <form method="post">
 	<head>
+		<style type="text/css">
+		.cat{vertical-align:text-top;}
+		.error{color:red;}
+		</style>
 		<title> My packing checklist </title>
 	</head>
 	<body>
 		<h1> My Packing Checklist </h1>
 		<h2> Trip Name: {{name}}, {{days}} days</h2>
-		<!--<a href="{{update}}"> Update list </a> which should entail marking things as "packed" on the dB-->
 		<table style="width:500px">
 			<tr>
-				<td> <b> To Pack </b></td>
-				<td> <b> Packed </b></td>
+			<p>Instructions: </p>
+			<ul>
+				<li>Check the packed items, then press "Update" to indicate as packed,
+				and vice versa </li>
+				<li>"Add" allows you to add your own items, then press "Update" to save</li>
+				<li>"Remove" deletes the item from the list</li>
+				<li>"Edit" allows you to change the item</li>
+			</ul></tr>
+			<tr>
+			<input value="Update" type="submit">
+			<button type="button">Print</button>
+			</tr>
+			<br><br>
+			Add item
+			<input name="new" value="{{entry}}"><input type="radio" name="cat" value="Clothing">Clothing  
+			<input type="radio" name="cat" value="Toiletry">Toiletry  
+			<input type="radio" name="cat" value="Other">Other
+			<div class="error">{{caterror}}  </div>
+			<br>
+			<tr>
+				<td> <h3><b> To Pack </b></h3></td>
+				<td> <h3><b> Packed </b></h3></td>
 			</tr>
 			<tr>
-				<td> Clothing <br>
-					<!--current_category = "Clothing"-->
-				{% for item in items: %}
-					<% =det(item.item, item.category, item.gender, item.freq, item.type, item.packed, packed_side, gen_user, days, beach, hiking, festival, work, cold, rainy, type_packer, current_category)%>
-				{% endfor %}
-				 </td>
-				<td> Clothing </td>
+				<td class="cat"> Clothing <br>
+				{% for item in cn: %}
+					<input name={{item.key().id()}} type="checkbox">{{item.quantity+" "+item.item}}<br>
+				{% endfor %} </td>
+				<td class="cat"> Clothing <br>
+				{% for item in cp: %}
+					<input name={{item.key().id()}} type="checkbox">{{item.quantity+" "+item.item}}<br>
+				{% endfor %} <br></td>
 			</tr>
 			<tr>
-				<td> Toiletry </td>
-				<td> Toiletry </td>
+				<td class="cat"> Toiletry <br>
+				{% for item in tn: %}
+					<input name={{item.key().id()}} type="checkbox">{{item.quantity+" "+item.item}}<br>
+				{% endfor %} <br></td>
+				<td class="cat"> Toiletry <br>
+				{% for item in tp: %}
+					<input name={{item.key().id()}} type="checkbox">{{item.quantity+" "+item.item}}<br>
+				{% endfor %} <br></td>
 			</tr>
 			<tr>
-				<td> Other </td>
-				<td> Other </td>
+				<td class="cat"> Other <br>
+				{% for item in on: %}
+					<input name={{item.key().id()}} type="checkbox">{{item.quantity+" "+item.item}}<br>
+				{% endfor %} <br></td>
+				<td class="cat"> Other <br>
+				{% for item in op: %}
+					<input name={{item.key().id()}} type="checkbox">{{item.quantity+" "+item.item}}<br>
+				{% endfor %} <br></td>
 			</tr>
 			<tr> <td><br></td></tr>
-			<tr>
-				<td>
-				<em>Other suggested items</em></td>
-			</tr>
-				<td>Clothing </td>
-				<td>Clothing </td>
-			</tr>
-			<tr>
-				<td> Toiletry </td>
-				<td> Toiletry </td>
-			</tr>
-			<tr>
-				<td> Other </td>
-				<td> Other </td>
-
+			
 		</table>
 
 

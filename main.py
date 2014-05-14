@@ -41,16 +41,13 @@ class Handler(webapp2.RequestHandler):
         self.write(self.render_str(template, **kw))
 
 class MainHandler(Handler):
-    #write the form
     def write_form(self, username="", error_user="", error_password="", error_verify="", 
         email="", error_email=""):
         self.render('registration.html', username=username, error_user=error_user, 
             error_password=error_password, error_verify=error_verify, 
             email=email, error_email=error_email)
-    #what happens when user "gets"
     def get(self):
         self.write_form()
-
     def post(self):
         username, password = self.request.get("username"), self.request.get("password")
         verify, email = self.request.get("verify"), self.request.get("email")
@@ -173,7 +170,6 @@ class Generator(Handler):
             self.response.headers.add_header("set-cookie", "days=%s" %str(days))
             self.redirect("/packinglist/checklist")
 
-
 class Packing(db.Model):
     item = db.StringProperty(required=True)
     gender = db.StringProperty(required=False)
@@ -195,10 +191,12 @@ class Preferences(db.Model):
     festival=db.StringProperty(required=False)
     style=db.StringProperty(required=False)
     created=db.DateTimeProperty(auto_now_add=True)
-    
 
 class Checklist(Handler):
     def get(self):
+        self.render_form()
+    def render_form(self, name="", days="", cn="", tn="", 
+        on="", cp="", tp="", op="", caterror="", entry=""):
         name=self.request.cookies.get("name")
         days=self.request.cookies.get("days")
         cn = selector('Clothing', 'not packed', name)
@@ -218,14 +216,13 @@ class Checklist(Handler):
                 packed.append(e.key().id())
         memcache.set("notpacked", notpacked)
         memcache.set("packed", packed)
-        self.render("checklist.html", cn_add="<button type='button'>add</button>", name=name, days=days, cn=cn, tn=tn, on=on, cp=cp, tp=tp, op=op)
+        self.render("checklist.html", name=name, days=days, caterror=caterror, entry=entry,
+            cn=cn, tn=tn, on=on, cp=cp, tp=tp, op=op)
         #I should use memcache on this after the first pull
     def post(self):
         #move things from not packed to packed
         notpacked=memcache.get("notpacked") #how to set class member variables?
         packed=memcache.get("packed")
-        self.write(notpacked)
-        #I am unable to use Google's built-in ID when calling it from html..
         name=self.request.cookies.get("name")
         for e in notpacked:
             if self.request.get(str(e))=="on":
@@ -241,9 +238,18 @@ class Checklist(Handler):
                     "WHERE __key__=KEY('ListDatabase', :1) AND trip_name=:2", e, name).get()
                 p.status="not packed"
                 p.put()       
-        self.redirect('/packinglist/checklist')
-        
-        #display on checklist
+        caterror=""
+        entry=self.request.get("new")
+        cat=self.request.get("cat")
+        if entry!="" and cat=="":
+            caterror="You need to select a category"
+            self.render_form(name="", days="", cn="", tn="", on="", cp="", tp="", op="", 
+                caterror=caterror, entry="'"+entry+"'") #"entry" does not output spaces after an error..
+        else:
+            if entry!="" and cat!="":
+                b = ListDatabase(item=entry, category=cat, trip_name=name, status = "not packed", quantity="")
+                b.put()
+            self.redirect('/packinglist/checklist')
         
 def selector(category, status, name):
     p = db.GqlQuery("SELECT * "
@@ -263,15 +269,6 @@ class ListDatabase(db.Model):
     quantity = db.StringProperty(required=False)
     trip_name = db.StringProperty(required=False)
     user_id = db.StringProperty(required=False)
-
-""" How to change to status of a packed item
-packed_list = ["Toothbruth", "Toothpaste"]
-selection = db.GqlQuery("Select * from Packing where name is :1 and item in :1", name, 
-    packed_list)
-for e in packed_list:
-    e.name=True
-    db.put(e)
-"""
 
 class Delete(Handler):
     def get(self):
