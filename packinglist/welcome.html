@@ -1,0 +1,39 @@
+<form method="post">
+	<head>
+		<style type="text/css">
+		#main {margin-left:auto;
+			margin-right:auto;
+			width: 700px;
+			text-align: center;
+			border: dotted 1px black;
+			background-color:white}
+		table {padding:15px;}
+		ul {list-style-position:inside;}
+		th {border-bottom: 1px solid black;}
+		td {text-align:center;}
+		</style>
+		<title>My trips dashboard</title>
+		</head>
+	<body  bgcolor="FFFFC2">
+	<div id="main">
+		<h1> My Packing Checklist </h1> <br>
+		<h3> Welcome, {{username}} </h3>
+		<a href="/packinglist/generator"><button type="button">Create new trip</button></a><br>
+		<h4>My trips</h4>
+		<table width="100%">
+			<tr>
+				<th>Trip name</th>
+				<th>Trip created</th>
+				<th>Action</th>
+			</tr>
+		{% for trip in trips: %}
+			<tr>
+			<td>{{trip.name}}</td>  
+			<td>{{trip.created.strftime("%Y-%m-%d %H:%M:%S")}}</td>
+			<td><a href="/packinglist/checklist/{{trip.key().id()}}">View</a></td>
+			</tr>
+		{% endfor %}
+		</table>
+
+	</body>
+</form>

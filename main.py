@@ -24,6 +24,7 @@ import jinja2
 import validation
 import listdetermination
 from collections import namedtuple
+from markupsafe import Markup, escape
 
 from google.appengine.ext import db
 from google.appengine.api import memcache
@@ -40,7 +41,8 @@ class Handler(webapp2.RequestHandler):
     def render(self, template, **kw):
         self.write(self.render_str(template, **kw))
 
-class MainHandler(Handler):
+"""Registration"""
+class Registration(Handler):
     def write_form(self, username="", error_user="", error_password="", error_verify="", 
         email="", error_email=""):
         self.render('registration.html', username=username, error_user=error_user, 
@@ -68,8 +70,8 @@ class MainHandler(Handler):
                 #store user info in database
                 a = Users(username=username, password=password, email=email)
                 a.put()
-
-                self.redirect("/packinglist/welcome")
+                self.response.headers.add_header("set-cookie", "username=%s" %str(username))    
+                self.redirect("/packinglist/generator")
 
             else:
                 error_user, error_password, error_verify, error_email = "", "", "", ""
@@ -84,17 +86,7 @@ class MainHandler(Handler):
                 self.write_form(username, error_user, error_password, error_verify, email,
                 error_email)
 
-class Users(db.Model):
-    username=db.StringProperty(required=True)
-    password=db.TextProperty(required=True)
-    email=db.StringProperty(required=False)
-    created=db.DateTimeProperty(auto_now_add=True)
-
-class Welcome(MainHandler):
-    def write_form(self):
-        username=self.request.cookies.get("username")
-        self.write("Welcome, "+ username)
-
+"""User login"""
 class Login(Handler):
     def write_form(self, username="", error_login=""):
         self.render("login.html", username=username, error_login=error_login)
@@ -106,7 +98,7 @@ class Login(Handler):
         user = b.get()
         if user and user.password==password:
             self.response.headers.add_header("set-cookie", "username=%s" %str(username))
-            self.redirect("/packinglist/welcome")
+            self.redirect("/packinglist/mytrips")
         elif user:
             error_login="Incorrect password"
             self.write_form(username=username, error_login=error_login)
@@ -114,15 +106,32 @@ class Login(Handler):
             error_login="User doesn't exist"
             self.write_form(username="", error_login=error_login)
 
+"""User dashboard"""
+class MyTrips(Handler):
+    def get(self):
+        username=self.request.cookies.get("username")
+        trips= db.GqlQuery("Select * from Preferences where username=:1 order by created desc", username)
+        self.render("welcome.html", username=username, trips=trips)
+
+"""User logout"""
 class Logout(Handler):
     def get(self):
-        self.response.headers.add_header("set-cookie", "username=;Path=/")
-        self.redirect("/packinglist/signup")
+        self.response.headers.add_header("set-cookie", "username=;Path=/packinglist")
+        self.redirect("/packinglist/login")
 
+"""A form to fill in trip attributes"""
 class Generator(Handler):
-    def write_form(self, name="", days="", error_name="", error_days="", error_gender="", error_temp=""): #I need to make checkbox "sticky" too
+    def write_form(self, name="", days="", error_name="", error_days="", error_gender="", 
+       error_temp="", welcome=""): #I need to make checkbox "sticky" too
+        username=self.request.cookies.get("username")
+        if username==None or username=="":
+            welcome=""
+        else:
+            welcome=Markup("<b>Welcome, ")+username +Markup("</b><br>"
+                "<a href='/packinglist/mytrips'>My trips</a><br>"
+                "<a href='/packinglist/logout'>Not you? Logout</a>")
         self.render("generator.html", name=name, days=days, error_days=error_days, 
-            error_gender=error_gender, error_temp=error_temp)
+            error_gender=error_gender, error_temp=error_temp, welcome=welcome)
     def get(self):
         self.write_form()
     def post(self):
@@ -131,6 +140,7 @@ class Generator(Handler):
         rainy, beach = self.request.get("rainy"), self.request.get("beach")
         work, hiking, festival = self.request.get("work"), self.request.get("hiking"), self.request.get("festival")
         style = self.request.get("style")
+        username=self.request.cookies.get("username")
         error=0
         error_name, error_days, error_gender, error_temp = "", "", "", ""
         if name=="":
@@ -150,8 +160,9 @@ class Generator(Handler):
                 error_temp=error_temp)
         else:
             a = Preferences(name=name, days=int(days), gender=gender, cold=cold, warm=warm, rainy=rainy, beach=beach, 
-                work=work, hiking=hiking, festival=festival, style=style)
+                work=work, hiking=hiking, festival=festival, style=style, username=username)
             a.put()
+            ident=str(a.key().id())
             p = db.GqlQuery("Select * from Packing")
             new=[]
             for e in p:
@@ -160,28 +171,138 @@ class Generator(Handler):
                         work=work, cold=cold, rainy=rainy, weather=e.weather)
                 quantity=listdetermination.quant(item=e.item, days=days, cold=cold, 
                         warm=warm, rainy=rainy, type_packer=style, freq=e.freq)
+                def statement(item, quant):
+                    if quantity != "":
+                        return item + " ("+quantity+")"
+                    else:
+                        return item
                 b = ListDatabase(item=e.item, gender=e.gender, freq=e.freq, weather=e.weather,
                     type=e.type, category=e.category, trip_name=name, user_id="", 
-                    status = status, quantity=quantity)
+                    status = status, quantity=quantity, ident=ident, 
+                    statement=statement(e.item, quantity))
                 new.append(b)
             db.put(new)
-            #Need to escape apostrophe don't know how!!
-            self.response.headers.add_header("set-cookie", "name=%s" %str(name.replace("'", "&apos;")))#HELP!
-            self.response.headers.add_header("set-cookie", "days=%s" %str(days))
-            self.redirect("/packinglist/checklist")
+            self.redirect("/packinglist/checklist/%s" %str(ident))
 
-class Packing(db.Model):
-    item = db.StringProperty(required=True)
-    gender = db.StringProperty(required=False)
-    freq = db.StringProperty(required=False)
-    type = db.StringProperty(required=False)
-    weather = db.StringProperty(required=False)
-    category = db.StringProperty(required=False)
+"""Generating the checklist to an unique URL"""
+class Checklist(Handler):
+    def get(self, list_id):
+        self.render_form(list_id=list_id)
+    def render_form(self, name="", days="", cn="", tn="", 
+        on="", cp="", tp="", op="", caterror="", entry="", list_id="", username=""):
+        p=Preferences.get_by_id(long(list_id))
+        ident=list_id #id of the trip
+        username=self.request.cookies.get("username")
+        cn = selector('Clothing', 'not packed', ident)
+        tn = selector('Toiletry', 'not packed', ident)
+        on = selector('Other', 'not packed', ident)
+        cp = selector('Clothing', 'packed', ident)
+        tp = selector('Toiletry', 'packed', ident)
+        op = selector('Other', 'packed', ident)
+        nplist=[cn, tn, on]
+        packed, notpacked = [],[] #ids of the items
+        for li in nplist:
+            for e in li:
+                notpacked.append(e.key().id())
+        plist=[cp, tp, op]
+        for li in plist:
+            for e in li:
+                packed.append(e.key().id())
+        memcache.set("notpacked", notpacked)
+        memcache.set("packed", packed)
+        memcache.set("attributes", [ident, p.days, p.name])
+        self.render("checklist.html", p=p, caterror=caterror, entry=entry, username=username,
+            cn=cn, tn=tn, on=on, cp=cp, tp=tp, op=op)
+        #I should use memcache on this after the first pull
+    def post(self, list_id):
+        ident=memcache.get("attributes")[0]
+        name=memcache.get("attributes")[2]
+        notpacked=memcache.get("notpacked") #how to set class member variables?
+        packed=memcache.get("packed")
+        for e in notpacked:
+            if self.request.get(str(e))=="on":
+                p=db.GqlQuery("SELECT * "
+                    "FROM ListDatabase "
+                    "WHERE __key__=KEY('ListDatabase', :1) AND ident=:2", e, ident).get() #i think ident is redundant
+                p.status="packed"
+                p.put()
+        for e in packed:
+            if self.request.get(str(e))=="on":
+                p=db.GqlQuery("SELECT * "
+                    "FROM ListDatabase "
+                    "WHERE __key__=KEY('ListDatabase', :1) AND ident=:2", e, ident).get()
+                p.status="not packed"
+                p.put()       
+        caterror=""
+        entry=self.request.get("new")
+        cat=self.request.get("cat")
+        if entry!="" and cat=="":
+            caterror="You need to select a category"
+            self.render_form(name="", days="", cn="", tn="", on="", cp="", tp="", op="", 
+                caterror=caterror, entry=entry, list_id=list_id) #"entry" does not output spaces after an error..
+        else:
+            if entry!="" and cat!="":
+                b = ListDatabase(item=entry, statement=entry, category=cat, trip_name=name, 
+                    ident=ident, status = "not packed", quantity="")
+                b.put()
+            self.redirect("/packinglist/checklist/%s#anchor" %str(ident))
 
+def selector(category, status, ident):
+    p = db.GqlQuery("SELECT * "
+            "FROM ListDatabase "
+            "WHERE category=:1 AND status=:2 AND ident=:3 "
+            "ORDER BY item ASC",
+            category, status, ident)
+    return p
+
+def itemidparse(url):
+        init=url.find("checklist")+27
+        item_id=url[init:init+16]
+        return item_id, init
+
+class Edit(Handler):
+    def get(self, url, *a):
+        url=self.request.url
+        ident=memcache.get("attributes")[0]
+        item_id, init = itemidparse(url)
+        p=db.GqlQuery("Select * from ListDatabase "
+            "where __key__=KEY('ListDatabase', :1) and ident =:2", long(item_id), ident).get()
+        self.render("edit.html", p=p)
+    def post(self, *a):
+        url=self.request.url
+        ident=memcache.get("attributes")[0]
+        item_id, init = itemidparse(url)
+        p=db.GqlQuery("Select * from ListDatabase "
+            "where __key__=KEY('ListDatabase', :1) and ident =:2", long(item_id), ident).get()
+        new = self.request.get("new")
+        p.statement=new
+        p.put()
+        self.redirect(url[:init-1]+"#anchor")
+
+class Remove(Handler):
+    def get(self, url, *a):
+        url=self.request.url
+        ident=memcache.get("attributes")[0]
+        item_id, init = itemidparse(url)
+        p=db.GqlQuery("Select * from ListDatabase "
+            "where __key__=KEY('ListDatabase', :1) and ident =:2", long(item_id), ident).get()
+        p.delete()
+        self.redirect(url[:init-1]+"#anchor")
+
+"""Data tables"""
+"""User Data"""
+class Users(db.Model):
+    username=db.StringProperty(required=True)
+    password=db.TextProperty(required=True)
+    email=db.StringProperty(required=False)
+    created=db.DateTimeProperty(auto_now_add=True)
+
+"""Collects all the trip attributes generated by the generator"""
 class Preferences(db.Model):
     name=db.StringProperty(required=True)
     days=db.IntegerProperty(required=True)
     gender=db.StringProperty(required=True)
+    username=db.StringProperty(required=False)
     cold=db.StringProperty(required=False)
     warm=db.StringProperty(required=False)
     rainy=db.StringProperty(required=False)
@@ -192,72 +313,7 @@ class Preferences(db.Model):
     style=db.StringProperty(required=False)
     created=db.DateTimeProperty(auto_now_add=True)
 
-class Checklist(Handler):
-    def get(self):
-        self.render_form()
-    def render_form(self, name="", days="", cn="", tn="", 
-        on="", cp="", tp="", op="", caterror="", entry=""):
-        name=self.request.cookies.get("name")
-        days=self.request.cookies.get("days")
-        cn = selector('Clothing', 'not packed', name)
-        tn = selector('Toiletry', 'not packed', name)
-        on = selector('Other', 'not packed', name)
-        cp = selector('Clothing', 'packed', name)
-        tp = selector('Toiletry', 'packed', name)
-        op = selector('Other', 'packed', name)
-        nplist=[cn, tn, on]
-        packed, notpacked = [],[]
-        for li in nplist:
-            for e in li:
-                notpacked.append(e.key().id())
-        plist=[cp, tp, op]
-        for li in plist:
-            for e in li:
-                packed.append(e.key().id())
-        memcache.set("notpacked", notpacked)
-        memcache.set("packed", packed)
-        self.render("checklist.html", name=name, days=days, caterror=caterror, entry=entry,
-            cn=cn, tn=tn, on=on, cp=cp, tp=tp, op=op)
-        #I should use memcache on this after the first pull
-    def post(self):
-        #move things from not packed to packed
-        notpacked=memcache.get("notpacked") #how to set class member variables?
-        packed=memcache.get("packed")
-        name=self.request.cookies.get("name")
-        for e in notpacked:
-            if self.request.get(str(e))=="on":
-                p=db.GqlQuery("SELECT * "
-                    "FROM ListDatabase "
-                    "WHERE __key__=KEY('ListDatabase', :1) AND trip_name=:2", e, name).get()
-                p.status="packed"
-                p.put()
-        for e in packed:
-            if self.request.get(str(e))=="on":
-                p=db.GqlQuery("SELECT * "
-                    "FROM ListDatabase "
-                    "WHERE __key__=KEY('ListDatabase', :1) AND trip_name=:2", e, name).get()
-                p.status="not packed"
-                p.put()       
-        caterror=""
-        entry=self.request.get("new")
-        cat=self.request.get("cat")
-        if entry!="" and cat=="":
-            caterror="You need to select a category"
-            self.render_form(name="", days="", cn="", tn="", on="", cp="", tp="", op="", 
-                caterror=caterror, entry="'"+entry+"'") #"entry" does not output spaces after an error..
-        else:
-            if entry!="" and cat!="":
-                b = ListDatabase(item=entry, category=cat, trip_name=name, status = "not packed", quantity="")
-                b.put()
-            self.redirect('/packinglist/checklist')
-        
-def selector(category, status, name):
-    p = db.GqlQuery("SELECT * "
-            "FROM ListDatabase "
-            "WHERE category=:1 AND status=:2 AND trip_name=:3",
-            category, status, name)
-    return p
-
+"""Database of item status by trip"""
 class ListDatabase(db.Model):
     item=db.StringProperty(required=True)
     category=db.StringProperty(required=False)
@@ -269,20 +325,36 @@ class ListDatabase(db.Model):
     quantity = db.StringProperty(required=False)
     trip_name = db.StringProperty(required=False)
     user_id = db.StringProperty(required=False)
+    ident=db.StringProperty(required=False)
+    statement=db.StringProperty(required=False)
 
-class Delete(Handler):
+"""Master database of the standard list items"""
+class Packing(db.Model):
+    item = db.StringProperty(required=True)
+    gender = db.StringProperty(required=False)
+    freq = db.StringProperty(required=False)
+    type = db.StringProperty(required=False)
+    weather = db.StringProperty(required=False)
+    category = db.StringProperty(required=False)
+
+"""Deletes all user and item data!!!"""
+class MassDelete(Handler):
     def get(self):
         entries=db.GqlQuery("Select * from ListDatabase")
         for e in entries:
             e.delete()
-
+        entries=db.GqlQuery("Select * from Preferences")
+        for e in entries:
+            e.delete()
 
 app = webapp2.WSGIApplication([
-    ('/packinglist/signup', MainHandler),
-    ('/packinglist/welcome', Welcome),
+    ('/packinglist/signup', Registration),
+    ('/packinglist/mytrips', MyTrips),
     ('/packinglist/login', Login),
     ('/packinglist/logout', Logout),
     ('/packinglist/generator', Generator),
-    ('/packinglist/checklist', Checklist),
-    ('/packinglist/delete', Delete)
+    ('/packinglist/checklist/(\d+)', Checklist),
+    ('/packinglist/checklist/(\d+)/(\d+)/edit', Edit),
+    ('/packinglist/checklist/(\d+)/(\d+)/remove', Remove),
+    ('/packinglist/massdelete', MassDelete)
 ], debug=True)

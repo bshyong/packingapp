@@ -3,25 +3,41 @@
 		<style type="text/css">
 		.cat{vertical-align:text-top;}
 		.error{color:red;}
+		#main {
+			margin-left:auto;
+			margin-right:auto;
+			width: 700px;
+			text-align: center;
+			border: dotted 1px black;
+			background-color:white}
+		table {padding:15px;}
+		ul {list-style-position:inside;}
 		</style>
 		<title> My packing checklist </title>
 	</head>
-	<body>
+	<body bgcolor="FFFFC2">
+		<div id="main">
 		<h1> My Packing Checklist </h1>
-		<h2> Trip Name: {{name}}, {{days}} days</h2>
-		<table style="width:500px">
+		<h2> Trip: {{p.name}}, {{p.days}} days</h2>
+		<h2> User: {{username}} </h2>
+		<a href="/packinglist/login">Change User</a>
+		 | <a href="/packinglist/mytrips">My trips</a> |  
+		<a href="/packinglist/logout">Log out </a>
+		<table style="width:100%">
+			<col width="50%">
+			<col width="50%">
 			<tr>
 			<p>Instructions: </p>
-			<ul>
-				<li>Check the packed items, then press "Update" to indicate as packed,
-				and vice versa </li>
-				<li>"Add" allows you to add your own items, then press "Update" to save</li>
+			<ul text-align="left">
+				<li>To check an item as packed, check the box then press "Update", and vice versa.</li>
+				<li>To add an item, type in the item and check the category, and press "Update"</li>
 				<li>"Remove" deletes the item from the list</li>
 				<li>"Edit" allows you to change the item</li>
 			</ul></tr>
+			<a name="anchor"></a>
 			<tr>
 			<input value="Update" type="submit">
-			<button type="button">Print</button>
+			<input type="button" value="Print This Page" onClick="window.print()" /> 
 			</tr>
 			<br><br>
 			Add item
@@ -37,39 +53,48 @@
 			<tr>
 				<td class="cat"> Clothing <br>
 				{% for item in cn: %}
-					<input name={{item.key().id()}} type="checkbox">{{item.quantity+" "+item.item}}<br>
-				{% endfor %} </td>
+					<input name={{item.key().id()}} type="checkbox">{{item.statement}} 
+					<a href="/packinglist/checklist/{{p.key().id()}}/{{item.key().id()}}/edit">edit</a>
+					<a href="/packinglist/checklist/{{p.key().id()}}/{{item.key().id()}}/remove">erase</a><br>
+				{% endfor %} <br></td>
 				<td class="cat"> Clothing <br>
 				{% for item in cp: %}
-					<input name={{item.key().id()}} type="checkbox">{{item.quantity+" "+item.item}}<br>
+					<input name={{item.key().id()}} type="checkbox">{{item.statement}}
+					<a href="/packinglist/checklist/{{p.key().id()}}/{{item.key().id()}}/edit">edit</a>
+					<a href="/packinglist/checklist/{{p.key().id()}}/{{item.key().id()}}/remove">erase</a><br>
 				{% endfor %} <br></td>
 			</tr>
 			<tr>
 				<td class="cat"> Toiletry <br>
 				{% for item in tn: %}
-					<input name={{item.key().id()}} type="checkbox">{{item.quantity+" "+item.item}}<br>
+					<input name={{item.key().id()}} type="checkbox">{{item.statement}}
+					<a href="/packinglist/checklist/{{p.key().id()}}/{{item.key().id()}}/edit">edit</a>
+					<a href="/packinglist/checklist/{{p.key().id()}}/{{item.key().id()}}/remove">erase</a><br>
 				{% endfor %} <br></td>
 				<td class="cat"> Toiletry <br>
 				{% for item in tp: %}
-					<input name={{item.key().id()}} type="checkbox">{{item.quantity+" "+item.item}}<br>
+					<input name={{item.key().id()}} type="checkbox">{{item.statement}}
+					<a href="/packinglist/checklist/{{p.key().id()}}/{{item.key().id()}}/edit">edit</a>
+					<a href="/packinglist/checklist/{{p.key().id()}}/{{item.key().id()}}/remove">erase</a><br>
 				{% endfor %} <br></td>
 			</tr>
 			<tr>
 				<td class="cat"> Other <br>
 				{% for item in on: %}
-					<input name={{item.key().id()}} type="checkbox">{{item.quantity+" "+item.item}}<br>
+					<input name={{item.key().id()}} type="checkbox">{{item.statement}}
+					<a href="/packinglist/checklist/{{p.key().id()}}/{{item.key().id()}}/edit">edit</a>
+					<a href="/packinglist/checklist/{{p.key().id()}}/{{item.key().id()}}/remove">erase</a><br>
 				{% endfor %} <br></td>
 				<td class="cat"> Other <br>
 				{% for item in op: %}
-					<input name={{item.key().id()}} type="checkbox">{{item.quantity+" "+item.item}}<br>
+					<input name={{item.key().id()}} type="checkbox">{{item.statement}}
+					<a href="/packinglist/checklist/{{p.key().id()}}/{{item.key().id()}}/edit">edit</a>
+					<a href="/packinglist/checklist/{{p.key().id()}}/{{item.key().id()}}/remove">erase</a><br>
 				{% endfor %} <br></td>
 			</tr>
 			<tr> <td><br></td></tr>
 			
 		</table>
-
-
-
-
+		</div>
 	</body>
 </form>

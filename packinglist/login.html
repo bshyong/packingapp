@@ -1,5 +1,21 @@
 <!-- Registration form -->
 <form method = "post">
+	<head>
+		<style type="text/css">
+		#main {margin-left:auto;
+			margin-right:auto;
+			width: 700px;
+			text-align: center;
+			border: dotted 1px black;
+			background-color:white}
+		table {padding:15px;}
+		ul {list-style-position:inside;}
+		</style>
+		<title>Log in</title>
+		</head>
+	<body  bgcolor="FFFFC2">
+	<div id="main">
+		<h1> My Packing Checklist </h1>
 	<label>
 		Login
 	</label>
@@ -17,4 +33,9 @@
 	{{error_login}}
 	<br>
 	<input type = "submit">
+	<br>
+	<a href="/packinglist/signup">Create new user</a>
+	<br><br>
+	</div>
+	</body>
 </form>

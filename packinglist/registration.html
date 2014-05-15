@@ -1,5 +1,21 @@
 <!-- Registration form -->
 <form method = "post">
+		<head>
+		<style type="text/css">
+		#main {margin-left:auto;
+			margin-right:auto;
+			width: 700px;
+			text-align: center;
+			border: dotted 1px black;
+			background-color:white}
+		table {padding:15px;}
+		ul {list-style-position:inside;}
+		</style>
+		<title>Register</title>
+		</head>
+	<body  bgcolor="FFFFC2">
+	<div id="main">
+		<h1> My Packing Checklist </h1>
 	<label>
 		Registration
 	</label>
@@ -23,6 +39,11 @@
 		Email (optional)
 	<input name="email" value={{email}}> {{error_email}}
 	</label>
-	<br>
+	<br><br>
 	<input type = "submit">
+	<br>
+	<a href="/packinglist/login">I have an account</a>
+	<br><br>
+	</div>
+	</body>
 </form>
