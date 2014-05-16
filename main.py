@@ -177,7 +177,7 @@ class Generator(Handler):
                     else:
                         return item
                 b = ListDatabase(item=e.item, gender=e.gender, freq=e.freq, weather=e.weather,
-                    type=e.type, category=e.category, trip_name=name, user_id="", 
+                    type=e.type, category=e.category, trip_name=name, 
                     status = status, quantity=quantity, ident=ident, 
                     statement=statement(e.item, quantity))
                 new.append(b)
@@ -219,20 +219,22 @@ class Checklist(Handler):
         name=memcache.get("attributes")[2]
         notpacked=memcache.get("notpacked") #how to set class member variables?
         packed=memcache.get("packed")
+        updated=[]
         for e in notpacked:
             if self.request.get(str(e))=="on":
                 p=db.GqlQuery("SELECT * "
                     "FROM ListDatabase "
                     "WHERE __key__=KEY('ListDatabase', :1) AND ident=:2", e, ident).get() #i think ident is redundant
                 p.status="packed"
-                p.put()
+                updated.append(p)
         for e in packed:
             if self.request.get(str(e))=="on":
                 p=db.GqlQuery("SELECT * "
                     "FROM ListDatabase "
                     "WHERE __key__=KEY('ListDatabase', :1) AND ident=:2", e, ident).get()
                 p.status="not packed"
-                p.put()       
+                updated.append(p)
+        db.put(updated)      
         caterror=""
         entry=self.request.get("new")
         cat=self.request.get("cat")
@@ -324,7 +326,6 @@ class ListDatabase(db.Model):
     status = db.StringProperty(required=False)
     quantity = db.StringProperty(required=False)
     trip_name = db.StringProperty(required=False)
-    user_id = db.StringProperty(required=False)
     ident=db.StringProperty(required=False)
     statement=db.StringProperty(required=False)
 
@@ -346,6 +347,25 @@ class MassDelete(Handler):
         entries=db.GqlQuery("Select * from Preferences")
         for e in entries:
             e.delete()
+        entries=db.GqlQuery("Select * from Users")
+        for e in entries:
+            e.delete()
+
+"""Deletes all user and item data!!!"""
+class DataDelete(Handler):
+    def get(self):
+        entries=db.GqlQuery("Select * from Packing")
+        for e in entries:
+            e.delete()
+        entries=db.GqlQuery("Select * from Packing2")
+        for e in entries:
+            e.delete()
+        entries=db.GqlQuery("Select * from Test2")
+        for e in entries:
+            e.delete()
+        entries=db.GqlQuery("Select * from Test3")
+        for e in entries:
+            e.delete()
 
 app = webapp2.WSGIApplication([
     ('/packinglist/signup', Registration),
@@ -356,5 +376,6 @@ app = webapp2.WSGIApplication([
     ('/packinglist/checklist/(\d+)', Checklist),
     ('/packinglist/checklist/(\d+)/(\d+)/edit', Edit),
     ('/packinglist/checklist/(\d+)/(\d+)/remove', Remove),
-    ('/packinglist/massdelete', MassDelete)
+    ('/packinglist/massdelete', MassDelete),
+    ('/packinglist/datadelete', DataDelete)
 ], debug=True)
